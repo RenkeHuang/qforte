@@ -5,6 +5,7 @@ the molecular info and properties (hamiltonian, rdms, etc...).
 import operator
 import numpy as np
 from abc import ABC, abstractmethod
+import random
 
 from qforte.helper.operator_helper import build_from_openfermion
 from qforte.system.molecular_info import Molecule
@@ -16,6 +17,7 @@ from openfermion.transforms import get_fermion_operator, jordan_wigner
 from openfermion.utils import hermitian_conjugated, normal_ordered, freeze_orbitals
 
 from openfermionpsi4 import run_psi4
+from openfermionpyscf import run_pyscf
 
 
 class MolAdapter(ABC):
@@ -100,6 +102,8 @@ class OpenFermionMolAdapter(MolAdapter):
 
         kwargs.setdefault('order_sq_ham', False)
         kwargs.setdefault('order_jw_ham', False)
+        kwargs.setdefault('order_rand_ham', False)
+        # kwargs.setdefault('sq_oe_grouped', False)
         kwargs.setdefault('run_scf', 1)
         kwargs.setdefault('run_mp2', 0)
         kwargs.setdefault('run_ccsd', 0)
@@ -138,9 +142,9 @@ class OpenFermionMolAdapter(MolAdapter):
         else:
             fermion_hamiltonian = normal_ordered(get_fermion_operator(molecular_hamiltonian))
 
-        if(kwargs['order_sq_ham'] or kwargs['order_jw_ham']):
+        if(kwargs['order_sq_ham'] or kwargs['order_jw_ham'] or kwargs['order_rand_ham']):
 
-            if(kwargs['order_sq_ham'] and kwargs['order_jw_ham']):
+            if [kwargs['order_sq_ham'], kwargs['order_jw_ham'], kwargs['order_rand_ham']].count(True) > 1:
                 raise ValueError("Can't use more than one hamiltonain ordering option!")
 
             if(kwargs['order_sq_ham']):
@@ -152,8 +156,13 @@ class OpenFermionMolAdapter(MolAdapter):
                 # Try converting with qforte jw functions
                 sorted_sq_excitations = tf.fermop_to_sq_excitation(sorted_terms)
                 # print('\nsorted_sq_excitations:\n', sorted_sq_excitations)
+                # if(kwargs['sq_oe_grouped']):
+                #     print('     Group odd/even terms within single fermion term group!')
+                #     qforte_hamiltionan = jordan_wigner_mol(sorted_sq_excitations)
+                # else: 
+                # print('  default order within each fermion op group.')
                 sorted_organizer = tf.get_ucc_jw_organizer(sorted_sq_excitations, already_anti_herm=True)
-                # print('\nsorted_organizer:\n', sorted_organizer)
+                ## print('\nsorted_organizer:\n', sorted_organizer)
                 qforte_hamiltionan = tf.organizer_to_circuit(sorted_organizer)
                 # print('\nqforte_hamiltionan:\n', '  len: ', len(qforte_hamiltionan.terms()))
                 # for term in qforte_hamiltionan.terms():
@@ -174,7 +183,6 @@ class OpenFermionMolAdapter(MolAdapter):
                 # Sort organizer
                 sorted_organizer = sorted(unsorted_organizer, key = lambda x: np.abs(x[0]), reverse=True)
 
-
                 qforte_hamiltionan = tf.organizer_to_circuit(sorted_organizer)
                 # print('\nqforte_hamiltionan:\n', '  len: ', len(qforte_hamiltionan.terms()))
 
@@ -182,6 +190,17 @@ class OpenFermionMolAdapter(MolAdapter):
                 #     print(term[0])
                 #     print(term[1].str())
 
+            if kwargs['order_rand_ham']:
+                print('using random ordering of Pauli terms in the Hamiltonian!')
+                terms = [(k, v) for k, v in fermion_hamiltonian.terms.items()]
+                sq_excitations = tf.fermop_to_sq_excitation(terms)
+                organizer = tf.get_ucc_jw_organizer(sq_excitations, already_anti_herm=True)
+                
+                random.seed(kwargs['rand_seed'])
+                random.shuffle(organizer)
+
+                qforte_hamiltonian = tf.organizer_to_circuit(organizer)
+                
 
         else:
             print('Using standard openfermion hamiltonian ordering!')
