@@ -597,7 +597,8 @@ def get_mr_mats_fast(ref_lst, nstates_per_ref, dt_lst, H, nqubits, trot_number=1
 
     return s_mat, h_mat
 
-def get_sa_mr_mats_fast(ref_lst, nstates_per_ref, dt_lst, H, nqubits, trot_number=1):
+
+def get_sa_mr_mats_fast(ref_lst, nstates_per_ref, dt_lst, H, nqubits, trot_number=1, use_time_trans_symm=False):
     """Returns matrices P and Q with dimension
     (nstates_per_ref * len(ref_lst) X nstates_per_ref * len(ref_lst))
     based on the evolution of two unitary operators Um = exp(-i * m * dt * H)
@@ -649,8 +650,8 @@ def get_sa_mr_mats_fast(ref_lst, nstates_per_ref, dt_lst, H, nqubits, trot_numbe
             A numpy array containing the elements Q_mn
 
     """
-
-    num_tot_basis = len(ref_lst) * nstates_per_ref
+    n_refs = len(ref_lst)
+    num_tot_basis = n_refs * nstates_per_ref
 
     h_mat = np.zeros((num_tot_basis,num_tot_basis), dtype=complex)
     s_mat = np.zeros((num_tot_basis,num_tot_basis), dtype=complex)
@@ -706,13 +707,65 @@ def get_sa_mr_mats_fast(ref_lst, nstates_per_ref, dt_lst, H, nqubits, trot_numbe
 
             Homega_lst.append(Homega)
 
-    for p in range(num_tot_basis):
-        for q in range(p, num_tot_basis):
-            h_mat[p][q] = np.vdot(omega_lst[p], Homega_lst[q])
-            h_mat[q][p] = np.conj(h_mat[p][q])
-            s_mat[p][q] = np.vdot(omega_lst[p], omega_lst[q])
-            s_mat[q][p] = np.conj(s_mat[p][q])
 
+    """use time-translational invariance before Trotter;
+       Non-variational 
+    """
+    if use_time_trans_symm:
+        print('\nNotice: Non-Variational matrix element using time-translational symmetry.')
+        for ref_idx in range(n_refs):
+            left_vec = omega_lst[ref_idx*nstates_per_ref]
+            n_blocks = n_refs - ref_idx
+
+            for block_idx in range(n_blocks):
+                s_block_i = np.zeros((nstates_per_ref, nstates_per_ref), dtype=complex)
+                h_block_i = np.zeros((nstates_per_ref, nstates_per_ref), dtype=complex)
+                
+                for k in range(nstates_per_ref):
+                    num_terms = nstates_per_ref - k
+
+                    s_terms = [
+                        np.vdot(left_vec, omega_lst[nstates_per_ref*(ref_idx+block_idx)+k])]*num_terms
+                    s_terms_conj = [np.conj(term) for term in s_terms]
+                    s_block_i += np.diag(s_terms, k=k)
+
+                    h_terms = [
+                        np.vdot(left_vec, Homega_lst[nstates_per_ref*(ref_idx+block_idx)+k])]*num_terms
+                    h_terms_conj = [np.conj(term) for term in h_terms]
+                    h_block_i += np.diag(h_terms, k=k)
+
+                    if k > 0 and block_idx > 0:
+                        s_block_i += np.diag(s_terms_conj, k=-k)
+                        h_block_i += np.diag(h_terms_conj, k=-k)
+
+
+                s_mat[ref_idx*nstates_per_ref:(ref_idx+1)*nstates_per_ref,
+                    (ref_idx+block_idx)*nstates_per_ref:(ref_idx+block_idx+1)*nstates_per_ref] = s_block_i
+                s_mat = np.triu(s_mat, k=1) + s_mat.transpose().conjugate()
+
+                h_mat[ref_idx*nstates_per_ref:(ref_idx+1)*nstates_per_ref,
+                    (ref_idx+block_idx)*nstates_per_ref:(ref_idx+block_idx+1)*nstates_per_ref] = h_block_i
+                h_mat = np.triu(h_mat, k=1) + h_mat.transpose().conjugate()
+
+
+        # line_range = list(range(ref_idx*nstates_per_ref,
+        #                         (ref_idx+1)*nstates_per_ref))
+        # for l in line_range:
+        #     for n in range(n_blocks):
+        #         for c in range(l + n*nstates_per_ref, (ref_idx + n + 1)*nstates_per_ref):
+        #             h_mat[l][c] = np.vdot(left_vec, Homega_lst[c])
+        #             h_mat[c][l] = np.conj(h_mat[l][c])
+        #             s_mat[l][c] = np.vdot(left_vec, omega_lst[c])
+        #             s_mat[c][l] = np.conj(s_mat[l][c])
+    
+    else:
+        for p in range(num_tot_basis):
+            for q in range(p, num_tot_basis):
+                h_mat[p][q] = np.vdot(omega_lst[p], Homega_lst[q])
+                h_mat[q][p] = np.conj(h_mat[p][q])
+                s_mat[p][q] = np.vdot(omega_lst[p], omega_lst[q])
+                s_mat[q][p] = np.conj(s_mat[p][q])
+    
     return s_mat, h_mat
 
 def canonical_geig_solve(S, H, print_mats=False, sort_ret_vals=False):

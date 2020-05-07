@@ -161,7 +161,8 @@ def mrsqk_energy(mol, d, s, mr_dt, initial_ref,
         if(use_spin_adapted_refs):
             s_mat, h_mat = qk_helpers.get_sa_mr_mats_fast(sa_ref_lst, nstates_per_ref,
                                                         dt_lst, mol.get_hamiltonian(),
-                                                        nqubits, trot_number=trot_number)
+                                                        nqubits, trot_number=trot_number,
+                                                        use_time_trans_symm=True)
 
         else:
             s_mat, h_mat = qk_helpers.get_mr_mats_fast(ref_lst, nstates_per_ref,
