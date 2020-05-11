@@ -251,7 +251,11 @@ def get_init_ref_lst(initial_ref, d, ninitial_states, inital_dt,
 
     #NOTE: need get nqubits from Molecule class attribute instead of initial_ref list length
     # Also true for UCC functions
-    nqubits = len(initial_ref)
+    # nqubits = len(initial_ref) 
+
+    # changes to use multiple refs as starting point for mr selection
+    # initial_ref -> a list of lists
+    nqubits = len(initial_ref[0]) 
 
     h_mat = np.zeros((ninitial_states,ninitial_states), dtype=complex)
     s_mat = np.zeros((ninitial_states,ninitial_states), dtype=complex)
@@ -314,9 +318,9 @@ def get_init_ref_lst(initial_ref, d, ninitial_states, inital_dt,
         if(fast):
 
             Uk = qforte.QuantumCircuit()
-            for j in range(nqubits):
-                if initial_ref[j] == 1:
-                    Uk.add_gate(qforte.make_gate('X', j, j))
+            # for j in range(nqubits):
+            #     if initial_ref[j] == 1:
+            #         Uk.add_gate(qforte.make_gate('X', j, j))
 
             temp_op1 = qforte.QuantumOperator()
             for t in H.terms():
@@ -329,6 +333,16 @@ def get_init_ref_lst(initial_ref, d, ninitial_states, inital_dt,
                 Uk.add_gate(gate)
 
             qc = qforte.QuantumComputer(nqubits)
+
+            n_refs = len(initial_ref)
+            norm_factor = 1/np.sqrt(n_refs)
+            n_qubits = len(initial_ref[0])
+            init_state_vec = [0]*2**n_qubits
+            for det in initial_ref:
+                basis_idx = qk_helpers.ref_to_basis_idx(det)
+                init_state_vec[basis_idx] = norm_factor
+            qc.set_coeff_vec(init_state_vec)
+
             qc.apply_circuit(Uk)
             basis_coeff_vec_lst.append(qc.get_coeff_vec())
 
@@ -383,24 +397,29 @@ def get_init_ref_lst(initial_ref, d, ninitial_states, inital_dt,
     for idx in true_idx_lst:
         true_initial_ref_lst.append(intiger_to_ref(idx, nqubits))
 
-    if(initial_ref not in true_initial_ref_lst):
-        print('\n***Adding initial referance determinant!***\n')
-        for i in range(len(true_initial_ref_lst) - 1):
-            true_initial_ref_lst[i+1] = true_initial_ref_lst[i]
-
-        true_initial_ref_lst[0] = initial_ref
+    # if(initial_ref not in true_initial_ref_lst):
+    for det in initial_ref:
+        if det not in true_initial_ref_lst:
+            print('\n***Adding initial referance determinant!***\n')
+            for i in range(len(true_initial_ref_lst) - 1):
+                true_initial_ref_lst[i+1] = true_initial_ref_lst[i]
+            true_initial_ref_lst.insert(0, det)
+        # true_initial_ref_lst[0] = initial_ref
 
     for idx in idx_lst:
         initial_ref_lst.append(intiger_to_ref(idx, nqubits))
 
-    if(initial_ref not in initial_ref_lst):
-        print('\n***Adding initial referance determinant!***\n')
-        staggard_initial_ref_lst = [initial_ref]
-        for i in range(len(initial_ref_lst) - 1):
-            staggard_initial_ref_lst.append(initial_ref_lst[i].copy())
+    # if(initial_ref not in initial_ref_lst):
+    for det in initial_ref:
+        if det not in initial_ref_lst:
+            print('\n***Adding initial referance determinant!***\n')
+            # staggard_initial_ref_lst = [initial_ref]
+            # for i in range(len(initial_ref_lst) - 1):
+                # staggard_initial_ref_lst.append(initial_ref_lst[i].copy())
 
-        initial_ref_lst[0] = initial_ref
-        initial_ref_lst = staggard_initial_ref_lst.copy()
+        # initial_ref_lst[0] = initial_ref
+            initial_ref_lst.insert(0, det)
+            # initial_ref_lst = staggard_initial_ref_lst.copy()
 
     if(use_phase_based_selection):
         return true_initial_ref_lst
