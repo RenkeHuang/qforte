@@ -107,13 +107,19 @@ def mrsqk_energy(mol, d, s, mr_dt, initial_ref,
     print('        Multreference Selected Quantum Krylov   ')
     print('-----------------------------------------------------')
 
-    nqubits = len(initial_ref)
-    init_basis_idx = qk_helpers.ref_to_basis_idx(initial_ref)
-    init_basis = qforte.QuantumBasis(init_basis_idx)
+    # nqubits = len(initial_ref)
+    # init_basis_idx = qk_helpers.ref_to_basis_idx(initial_ref)
+    # init_basis = qforte.QuantumBasis(init_basis_idx)
+
+    nqubits = len(initial_ref[0])
+    init_basis_list = [qforte.QuantumBasis(
+        qk_helpers.ref_to_basis_idx(det)) for det in initial_ref]
+    init_basis_list_str = [det.str(nqubits) for det in init_basis_list]
 
     print('\n\n                   ==> MRSQK options <==')
     print('-----------------------------------------------------------')
-    print('Initial reference:                       ',  init_basis.str(nqubits))
+    # print('Initial reference:                       ',  init_basis.str(nqubits))
+    print('Initial reference:                       ',  ', '.join(init_basis_list_str))
     print('Dimension of reference space (d):        ',  d)
     print('Time evolutions per reference (s):       ',  s)
     print('Dimension of Krylov space (N):           ',  d*nstates_per_ref)
@@ -161,8 +167,8 @@ def mrsqk_energy(mol, d, s, mr_dt, initial_ref,
         if(use_spin_adapted_refs):
             s_mat, h_mat = qk_helpers.get_sa_mr_mats_fast(sa_ref_lst, nstates_per_ref,
                                                         dt_lst, mol.get_hamiltonian(),
-                                                        nqubits, trot_number=trot_number,
-                                                        use_time_trans_symm=True)
+                                                        nqubits, trot_number=trot_number
+                                                          )  # use_time_trans_symm=False
 
         else:
             s_mat, h_mat = qk_helpers.get_mr_mats_fast(ref_lst, nstates_per_ref,

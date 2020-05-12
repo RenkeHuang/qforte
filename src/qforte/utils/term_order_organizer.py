@@ -15,14 +15,18 @@ import numpy as np
 #     def lexical_order(self):
 #         pass
 
-def lexical_order(op, n_qubits, rule='XYZI'):
-    """
+def lexical_term_order(op, n_qubits, rule='XYZI'):
+    """ Return a sorted list for the input quantum operator according to the lexical rule
+
     Parameters
     ----------
     op: list
-        [[coeff_a, [ ("X", i), ("Z", j),  ("Y", k), ...  ] ], [...] ...]
+        a qubit operator in the form
+        [[coeff_a, [("X", i),("Z", j),("Y", k)]], [...] ...]
+    n_qubits: int
     rule: str, optional
-        string to define lexical ordering priority, 'XYZI' -> X<Y<Z<I, 
+        string to define lexical ordering priority, default 'XYZI' -> X<Y<Z<I
+
     """
     
     rule_list = list(rule.upper())
@@ -52,10 +56,19 @@ def lexical_order(op, n_qubits, rule='XYZI'):
         cir_num = int(''.join(cir_str))
         cir_list.append(cir_num)
         
-    temp = sorted(zip(cir_list, idx_list), key=lambda x: x[0])
-    cir_list, idx_list = map(list, zip(*temp))
+    pair = sorted(zip(cir_list, idx_list), key=lambda x: x[0])
+    cir_list, idx_list = map(list, zip(*pair))
 
     sorted_op_list = [op[i] for i in idx_list]
     return sorted_op_list
 
-def interleave_order():
+def interleaved_term_order(op_sq):
+    """ Return a sorted list of second-quantized operator in the optimized fermionic ordering
+    Parameters
+    ----------
+    op_sq: list 
+        [ [(so_idx1, so_idx2,...), coeff], ...], 
+        required to be normal ordered (indices of creation operators come first)
+    """
+    
+    

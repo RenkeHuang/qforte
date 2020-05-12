@@ -294,10 +294,10 @@ def get_sr_mats_fast(ref, dt, nstates, H, nqubits, trot_number=1):
     for n in range(nstates):
 
         Un = qforte.QuantumCircuit()
-        for j in range(nqubits):
-            if ref[j] == 1:
-                Un.add_gate(qforte.make_gate('X', j, j))
-                phase1 = 1.0
+        # for j in range(nqubits):
+        #     if ref[j] == 1:
+        #         Un.add_gate(qforte.make_gate('X', j, j))
+        phase1 = 1.0
 
         if(n>0):
             temp_op1 = qforte.QuantumOperator()
@@ -310,6 +310,16 @@ def get_sr_mats_fast(ref, dt, nstates, H, nqubits, trot_number=1):
             Un.add_circuit(expn_op1)
 
         QC = qforte.QuantumComputer(nqubits)
+
+        n_refs = len(ref)
+        norm_factor = 1/np.sqrt(n_refs)
+        n_qubits = len(ref[0])
+        init_state_vec = [0]*2**n_qubits
+        for det in ref:
+            basis_idx = ref_to_basis_idx(det)
+            init_state_vec[basis_idx] = norm_factor
+        QC.set_coeff_vec(init_state_vec)
+
         QC.apply_circuit(Un)
         QC.apply_constant(phase1)
         omega_lst.append(np.asarray(QC.get_coeff_vec(), dtype=complex))
@@ -556,7 +566,8 @@ def get_mr_mats_fast(ref_lst, nstates_per_ref, dt_lst, H, nqubits, trot_number=1
             for j in range(nqubits):
                 if ref[j] == 1:
                     Un.add_gate(qforte.make_gate('X', j, j))
-                    phase1 = 1.0
+            
+            phase1 = 1.0
 
             if(n>0):
                 temp_op1 = qforte.QuantumOperator()
